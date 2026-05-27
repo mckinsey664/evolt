@@ -19,6 +19,31 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 app = FastAPI(title="Taxi Backend (FastAPI)", version="0.7.0")
 
 # ----------------------------------------------------
+# 🔐 ADMIN LOGIN PROTECTION
+# ----------------------------------------------------
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi import status
+import secrets
+
+security = HTTPBasic()
+
+# 🔥 SET YOUR ADMIN CREDENTIALS HERE
+ADMIN_EMAIL = "admin@evolt.com"
+ADMIN_PASSWORD = "Evolt@app2026"
+
+
+def verify_admin(credentials: HTTPBasicCredentials):
+    correct_email = secrets.compare_digest(credentials.username, ADMIN_EMAIL)
+    correct_password = secrets.compare_digest(credentials.password, ADMIN_PASSWORD)
+
+    if not (correct_email and correct_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid admin credentials",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+# ----------------------------------------------------
 # Middleware
 # ----------------------------------------------------
 app.add_middleware(
@@ -28,6 +53,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# ----------------------------------------------------
+# 🔒 Protect /admin routes
+# ----------------------------------------------------
+@app.middleware("http")
+async def protect_admin(request, call_next):
+    if request.url.path.startswith("/admin"):
+        credentials = await security(request)
+        verify_admin(credentials)
+    response = await call_next(request)
+    return response
 
 # ----------------------------------------------------
 # Database Initialization
