@@ -63,37 +63,49 @@ class OTPVerifyRequest(BaseModel):
 
 
 # ==================================================
-# 1️⃣ SEND OTP
+# SEND OTP
 # ==================================================
 @router.post("/auth/send-otp")
-def send_otp(data: SendOTPRequest, db: Session = Depends(get_db)):
-
-    phone = normalize_phone(data.phone)
-
-    print("Normalized phone:", phone)
-
-    if not phone.startswith("+961"):
-        return {
-            "success": False,
-            "message": "Phone must be Lebanese (+961XXXXXXXX)"
-        }
-
-    # CHECK IF PHONE EXISTS
-    existing = db.query(models.User).filter(models.User.phone == phone).first()
-
-    if existing:
-        return {
-            "success": False,
-            "message": "Phone already registered. Please login."
-        }
+def send_otp(
+    data: SendOTPRequest,
+    db: Session = Depends(get_db)
+):
 
     try:
 
-        verification = twilio_client.verify.v2.services(
-            TWILIO_VERIFY_SERVICE_SID
-        ).verifications.create(
-            to=phone,
-            channel="sms"
+        phone = normalize_phone(data.phone)
+
+        print("===================================")
+        print("OTP REQUEST")
+        print("Normalized phone:", phone)
+        print("===================================")
+
+        # ==========================================
+        # CHECK IF PHONE EXISTS
+        # ==========================================
+        existing = db.query(models.User).filter(
+            models.User.phone == phone
+        ).first()
+
+        if existing:
+
+            return {
+                "success": False,
+                "message": "Phone already registered"
+            }
+
+        # ==========================================
+        # SEND SMS USING TWILIO VERIFY
+        # ==========================================
+        verification = (
+            twilio_client.verify
+            .v2
+            .services(TWILIO_VERIFY_SERVICE_SID)
+            .verifications
+            .create(
+                to=phone,
+                channel="sms"
+            )
         )
 
         print("Twilio SID:", verification.sid)
@@ -106,13 +118,15 @@ def send_otp(data: SendOTPRequest, db: Session = Depends(get_db)):
 
     except Exception as e:
 
-        print("Twilio send error:", str(e))
+        print("===================================")
+        print("TWILIO SEND ERROR")
+        print(str(e))
+        print("===================================")
 
         return {
             "success": False,
-            "message": "Failed to send OTP"
+            "message": str(e)
         }
-
 
 # ==================================================
 # 2️⃣ VERIFY OTP + CREATE USER
