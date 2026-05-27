@@ -56,11 +56,21 @@ app.add_middleware(
 # ----------------------------------------------------
 # 🔒 Protect /admin routes
 # ----------------------------------------------------
+from fastapi.responses import JSONResponse
+
 @app.middleware("http")
 async def protect_admin(request, call_next):
     if request.url.path.startswith("/admin"):
-        credentials = await security(request)
-        verify_admin(credentials)
+        try:
+            credentials = await security(request)
+            verify_admin(credentials)
+        except Exception:
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Not authenticated"},
+                headers={"WWW-Authenticate": "Basic"},
+            )
+
     response = await call_next(request)
     return response
 
